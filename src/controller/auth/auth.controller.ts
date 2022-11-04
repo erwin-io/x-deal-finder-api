@@ -19,7 +19,7 @@ import { CreateUserDto } from "src/core/dto/users/user.create.dto";
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post("register/staff")
+  @Post("register/admin")
   public async registerStaff(@Body() createUserDto: CreateUserDto) {
     const res: CustomResponse = {};
     try {

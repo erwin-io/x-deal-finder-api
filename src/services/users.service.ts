@@ -12,6 +12,7 @@ import { Gender } from "../shared/entities/Gender";
 import { EntityStatus } from "../shared/entities/EntityStatus";
 import { query } from "express";
 import { CreateUserDto } from "src/core/dto/users/user.create.dto";
+import { UpateUserDto, UpateUserPasswordDto } from "src/core/dto/users/user.update.dto";
 
 @Injectable()
 export class UsersService {
@@ -32,6 +33,17 @@ export class UsersService {
     });
   }
 
+  async findById(userId) {
+    const result = await this.userRepo.findOne({
+      where: { userId },
+      relations: ["gender"],
+    });
+    if (!result) {
+      throw new HttpException("User not found", HttpStatus.NOT_FOUND);
+    }
+    return this._sanitizeUser(result);
+  }
+
   async findByLogin(username, password, isAdminUserType) {
     const result = await this.userRepo.findOne({
       where: { username, isAdminUserType },
@@ -40,7 +52,7 @@ export class UsersService {
     if (!result) {
       throw new HttpException("Username not found", HttpStatus.NOT_FOUND);
     }
-    if (!result.isLock) {
+    if (result.isLock) {
       throw new HttpException("Yout account has been locked", HttpStatus.OK);
     }
     const areEqual = await compare(result.password, password);
@@ -77,6 +89,7 @@ export class UsersService {
       }
       let user = new Users();
       user.isAdminUserType = isAdminUserType;
+      user.isLock = false;
       user.username = userDto.username;
       user.password = await hash(userDto.password);
       user.entityStatus = new EntityStatus();
@@ -108,6 +121,7 @@ export class UsersService {
         throw new HttpException("Username already taken", HttpStatus.CONFLICT);
       }
       let user = new Users();
+      user.isLock = isAdminUserType;
       user.isAdminUserType = isAdminUserType;
       user.username = userDto.username;
       user.password = await hash(userDto.password);
@@ -122,6 +136,79 @@ export class UsersService {
       user.age = await getAge(userDto.birthDate);
       user.gender = new Gender();
       user.gender.genderId = userDto.genderId;
+      user = await entityManager.save(Users, user);
+      user = await this._sanitizeUser(user);
+      return user;
+    });
+  }
+
+  async update(userDto: UpateUserDto) {
+    const userId = userDto.userId;
+
+    return await this.userRepo.manager.transaction(async (entityManager) => {
+      let user = await entityManager.findOne(Users, {
+        where: { userId },
+      });
+      if (!user) {
+        throw new HttpException(`User doesn't exist`, HttpStatus.NOT_FOUND);
+      }
+      user.firstName = userDto.firstName;
+      user.middleName = userDto.middleName;
+      user.lastName = userDto.lastName;
+      user.mobileNumber = userDto.mobileNumber;
+      user.address = userDto.address;
+      user.birthDate = userDto.birthDate;
+      user.age = await getAge(userDto.birthDate);
+      user.gender = new Gender();
+      user.gender.genderId = userDto.genderId;
+      user = await entityManager.save(Users, user);
+      user = await this._sanitizeUser(user);
+      return user;
+    });
+  }
+
+  async updatePassword(upateUserPasswordDto: UpateUserPasswordDto) {
+
+    return await this.userRepo.manager.transaction(async (entityManager) => {
+      let user = await entityManager.findOne(Users, {
+        where: { userId: upateUserPasswordDto.userId },
+      });
+      if (!user) {
+        throw new HttpException("user not found", HttpStatus.CONFLICT);
+      }
+      user.password = await hash(upateUserPasswordDto.password);
+      user = await entityManager.save(Users, user);
+      user = await this._sanitizeUser(user);
+      return user;
+    });
+  }
+
+  async toggleLock(isLock: boolean, userId: string) {
+
+    return await this.userRepo.manager.transaction(async (entityManager) => {
+      let user = await entityManager.findOne(Users, {
+        where: { userId },
+      });
+      if (!user) {
+        throw new HttpException("user not found", HttpStatus.CONFLICT);
+      }
+      user.isLock = isLock;
+      user = await entityManager.save(Users, user);
+      user = await this._sanitizeUser(user);
+      return user;
+    });
+  }
+
+  async approveAdminUser(userId: string) {
+
+    return await this.userRepo.manager.transaction(async (entityManager) => {
+      let user = await entityManager.findOne(Users, {
+        where: { userId },
+      });
+      if (!user) {
+        throw new HttpException("user not found", HttpStatus.CONFLICT);
+      }
+      user.isAdminApproved = true;
       user = await entityManager.save(Users, user);
       user = await this._sanitizeUser(user);
       return user;

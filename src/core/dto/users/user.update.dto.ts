@@ -13,7 +13,9 @@ export class UserDto {
   @ApiProperty()
   @IsNotEmpty()
   userId: string;
+}
 
+export class UpateUserDto extends UserDto {
   @ApiProperty()
   @IsNotEmpty()
   firstName: string;
@@ -43,12 +45,16 @@ export class UserDto {
   @ApiProperty()
   @IsNotEmpty()
   mobileNumber: string;
+}
 
-  @ApiProperty()
-  @IsNotEmpty()
-  username: string;
-
+export class UpateUserPasswordDto extends UserDto {
   @ApiProperty()
   @IsNotEmpty()
   password: string;
+}
+
+export class ToggleLockDto extends UserDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  isLock: boolean;
 }
